@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<!--
+  Article to PDF Extractor
+  Version 1.0.0
+  https://github.com/clhforensics/article-to-pdf-extractor
+  Licensed under the MIT License — see LICENSE file
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article to PDF Extractor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 { font-size: 2.3rem; margin-bottom: 10px; font-weight: 300; }
+        .header p { font-size: 1.05rem; opacity: 0.9; }
+
+        .main-content { padding: 35px 40px 40px; }
+
+        h2 { color: #2c3e50; font-size: 1.4rem; margin-bottom: 15px; font-weight: 500; }
+        h3 { color: #2c3e50; font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; }
+
+        .info-banner {
+            background: #eef5ff;
+            border-left: 4px solid #3498db;
+            border-radius: 8px;
+            padding: 18px 22px;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }
+        .info-banner strong { color: #2c3e50; }
+
+        .workflow-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 0;
+            border-bottom: 2px solid #e0e6ed;
+        }
+
+        .tab-button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 14px 16px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: #7f8c8d;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .tab-button:hover { color: #2c3e50; background: #f8f9fa; }
+
+        .tab-button.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .tab-panel {
+            display: none;
+            padding: 25px 0 10px;
+        }
+        .tab-panel.active { display: block; }
+
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 14px;
+            align-items: flex-start;
+        }
+        .step-num {
+            background: #3498db;
+            color: white;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .step-body { flex: 1; line-height: 1.5; padding-top: 2px; }
+
+        .bookmarklet-row {
+            background: #f1f8ff;
+            border: 1px dashed #3498db;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 14px 0;
+            text-align: center;
+        }
+
+        .bookmarklet-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white !important;
+            padding: 12px 22px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+        }
+        .bookmarklet-link:active { cursor: grabbing; }
+        .bookmarklet-hint { font-size: 0.85rem; color: #555; margin-top: 10px; }
+
+        .url-input, .paste-area, textarea {
+            width: 100%;
+            padding: 13px 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 0.98rem;
+            transition: border-color 0.2s ease;
+            font-family: inherit;
+        }
+        .url-input:focus, .paste-area:focus, textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .paste-area {
+            min-height: 130px;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 0.88rem;
+            resize: vertical;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .row .url-input { flex: 1; }
+
+        .file-upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 10px;
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fafcff;
+        }
+        .file-upload-area:hover { background: #f1f8ff; border-color: #2980b9; }
+        .file-upload-area.dragover { background: #e3f2fd; border-color: #27ae60; }
+        .upload-icon { font-size: 2.4rem; margin-bottom: 10px; }
+        .upload-text { color: #2c3e50; font-size: 1rem; margin-bottom: 4px; }
+        .upload-subtext { color: #7f8c8d; font-size: 0.85rem; }
+        .file-input { display: none; }
+
+        .btn {
+            padding: 12px 22px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            font-family: inherit;
+        }
+        .btn-primary { background: linear-gradient(135deg, #3498db, #2980b9); color: white; }
+        .btn-success { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+        .btn-purple { background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; }
+        .btn-orange { background: linear-gradient(135deg, #f39c12, #e67e22); color: white; }
+        .btn-ghost { background: #ecf0f1; color: #2c3e50; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn:disabled { background: #bdc3c7 !important; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-full { width: 100%; padding: 15px; font-size: 1.05rem; }
+        .btn-small { padding: 7px 13px; font-size: 0.85rem; }
+
+        .queue-section {
+            margin-top: 35px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 22px;
+        }
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .queue-count {
+            background: #3498db;
+            color: white;
+            padding: 4px 11px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-left: 8px;
+        }
+        .queue-empty {
+            text-align: center;
+            color: #95a5a6;
+            padding: 30px 10px;
+            font-size: 0.95rem;
+        }
+        .queue-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 13px 16px;
+            background: white;
+            border-radius: 7px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            gap: 12px;
+        }
+        .queue-item:last-child { margin-bottom: 0; }
+        .queue-item-info { flex: 1; min-width: 0; }
+        .queue-item-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .queue-item-meta {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-right: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .type-url { background: #e3f2fd; color: #1976d2; }
+        .type-pasted { background: #f3e5f5; color: #7b1fa2; }
+        .type-html { background: #e8f5e9; color: #388e3c; }
+        .type-pdf { background: #fff3e0; color: #e65100; }
+
+        .progress-section {
+            margin-top: 25px;
+            padding: 20px;
+            background: #fafcff;
+            border-radius: 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e6ed;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .status { font-size: 0.95rem; color: #2c3e50; text-align: center; }
+
+        .results-section { margin-top: 30px; }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 18px 20px;
+            background: white;
+            border: 1px solid #e0e6ed;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            gap: 18px;
+        }
+        .result-info { flex: 1; min-width: 0; }
+        .result-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 6px;
+            font-size: 1.05rem;
+        }
+        .result-source {
+            font-size: 0.82rem;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+        .result-preview {
+            font-size: 0.85rem;
+            color: #5d6d7e;
+            line-height: 1.5;
+            max-height: 70px;
+            overflow: hidden;
+        }
+        .result-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            min-width: 180px;
+            align-items: stretch;
+        }
+        .status-indicator {
+            padding: 5px 11px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .status-success { background: #d5f4e6; color: #1e8449; }
+        .status-error { background: #fdeaea; color: #c0392b; }
+        .status-warning { background: #fef5e1; color: #b9770e; }
+        .status-info { background: #e3f2fd; color: #1976d2; }
+
+        .hidden { display: none !important; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #2c3e50;
+            color: white;
+            padding: 13px 20px;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            z-index: 9999;
+            font-size: 0.92rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #27ae60; }
+        .toast.error { background: #e74c3c; }
+
+        details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+        details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        details[open] summary { margin-bottom: 10px; }
+        details code {
+            display: block;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            word-break: break-all;
+            white-space: pre-wrap;
+            margin-top: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .main-content { padding: 22px; }
+            .header h1 { font-size: 1.8rem; }
+            .result-item { flex-direction: column; }
+            .result-actions { min-width: 0; width: 100%; }
+            .workflow-tabs { flex-direction: column; }
+            .tab-button { border-bottom: 1px solid #e0e6ed; border-left: 3px solid transparent; }
+            .tab-button.active { border-bottom-color: #e0e6ed; border-left-color: #3498db; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Article to PDF Extractor</h1>
+            <p>Convert articles into clean PDFs — including content behind paywalls you're licensed for</p>
+        </div>
+
+        <div class="main-content">
+            <div class="info-banner">
+                <strong>How this handles paywalls:</strong> A browser-only tool can't log in to WSJ, NYT, JSTOR, etc. on its own, and you've said you don't want to give it credentials — good call. Instead, this tool piggybacks on <em>your</em> already-logged-in browser. Use the <strong>Bookmarklet</strong> tab for paywalled articles (one click on the article page, paste here), the <strong>Saved HTML</strong> tab for pages you've saved from your browser, or the <strong>URL Fetch</strong> tab for public pages.
+            </div>
+
+            <div class="workflow-tabs" role="tablist">
+                <button class="tab-button active" data-tab="bookmarklet" onclick="switchTab('bookmarklet')">🔖 Bookmarklet (Paywalls)</button>
+                <button class="tab-button" data-tab="html" onclick="switchTab('html')">💾 Saved HTML File</button>
+                <button class="tab-button" data-tab="url" onclick="switchTab('url')">🔗 URL Fetch (Public)</button>
+            </div>
+
+            <!-- BOOKMARKLET TAB -->
+            <div class="tab-panel active" id="tab-bookmarklet">
+                <h3>One-click capture from your logged-in browser</h3>
+                <p style="color: #5d6d7e; margin-bottom: 15px; line-height: 1.5;">
+                    The bookmarklet runs inside your browser tab where you're already authenticated, so it sees the full article — no credentials shared with this tool.
+                </p>
+
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <div class="step-body">
+                        <strong>Show your bookmarks bar</strong> (Chrome/Edge: <code>Ctrl+Shift+B</code>) then <strong>drag this button</strong> onto it:
+                    </div>
+                </div>
+
+                <div class="bookmarklet-row">
+                    <a class="bookmarklet-link" id="bookmarkletLink" href="#" onclick="event.preventDefault(); showToast('Drag this button to your bookmarks bar — don\'t click it here', 'error');">📎 Save Article to Extractor</a>
+                    <div class="bookmarklet-hint">Drag this button to your bookmarks bar. Clicking it here won't work — it only works on article pages.</div>
+                </div>
+
+                <details>
+                    <summary>Or copy the bookmarklet code manually</summary>
+                    <p style="margin-top: 8px; font-size: 0.88rem;">Create a new bookmark, name it anything (e.g. "Save Article"), and paste this as the URL:</p>
+                    <code id="bookmarkletCode"></code>
+                    <button class="btn btn-ghost btn-small" style="margin-top: 8px;" onclick="copyBookmarkletCode()">📋 Copy code</button>
+                </details>
+
+                <div class="step" style="margin-top: 20px;">
+                    <div class="step-num">2</div>
+                    <div class="step-body">
+                        Open the article in your browser (where you're logged in). Wait for it to fully load, then click the <strong>"Save Article to Extractor"</strong> bookmark. You'll see a confirmation that the article was copied to your clipboard.
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <div class="step-body">
+                        Come back here and paste below, then click <strong>Add to Queue</strong>:
+                    </div>
+                </div>
+
+                <textarea class="paste-area" id="pasteArea" placeholder="Paste the clipboard contents here (Ctrl+V / Cmd+V)..."></textarea>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn btn-success" onclick="addFromPaste()">➕ Add to Queue</button>
+                    <button class="btn btn-ghost" onclick="document.getElementById('pasteArea').value = ''">Clear</button>
+                </div>
+            </div>
+
+            <!-- SAVED HTML TAB -->
+            <div class="tab-panel" id="tab-html">
+                <h3>Upload saved web pages</h3>
+                <p style="color: #5d6d7e; margin-bottom: 18px; line-height: 1.5;">
+                    In your browser, open the article (logged in), press <code>Ctrl+S</code> (or Cmd+S), and choose <strong>"Webpage, HTML Only"</strong>. Drop the .html file here. You can also upload a .txt file listing URLs (one per line) — those get added to the URL fetch queue.
+                </p>
+
+                <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Click to upload or drag &amp; drop</div>
+                    <div class="upload-subtext">.html, .htm (saved articles) or .txt (URL lists)</div>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept=".html,.htm,.txt" multiple onchange="handleFileUpload(event)">
+            </div>
+
+            <!-- URL TAB -->
+            <div class="tab-panel" id="tab-url">
+                <h3>Fetch public URLs via CORS proxy</h3>
+                <p style="color: #5d6d7e; margin-bottom: 18px; line-height: 1.5;">
+                    Works for publicly accessible pages and PDFs. <strong>Will not work for paywalled or login-required content</strong> — use the Bookmarklet or Saved HTML tab for those.
+                </p>
+
+                <div class="row">
+                    <input type="url" class="url-input" id="urlInput" placeholder="https://example.com/article">
+                    <button class="btn btn-primary" onclick="addUrl()">➕ Add URL</button>
+                </div>
+                <p style="font-size: 0.85rem; color: #7f8c8d;">
+                    Tip: also accepts pasting multiple URLs separated by newlines.
+                </p>
+            </div>
+
+            <!-- QUEUE -->
+            <div class="queue-section">
+                <div class="queue-header">
+                    <h2 style="margin: 0;">
+                        Queue
+                        <span class="queue-count" id="queueCount">0</span>
+                    </h2>
+                    <button class="btn btn-ghost btn-small" id="clearAllBtn" onclick="clearQueue()" style="display: none;">Clear all</button>
+                </div>
+                <div id="queueList">
+                    <div class="queue-empty">No items yet — add an article from any tab above.</div>
+                </div>
+            </div>
+
+            <button class="btn btn-success btn-full" id="processBtn" onclick="processQueue()" disabled style="margin-top: 20px;">
+                🔄 Process All & Generate PDFs
+            </button>
+
+            <div class="progress-section hidden" id="progressSection">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="status" id="status">Processing...</div>
+            </div>
+
+            <div class="results-section hidden" id="resultsSection">
+                <h2>📦 Results</h2>
+                <div id="results"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ===== STATE =====
+        let queue = [];        // { type: 'url'|'pasted'|'html'|'pdf', url, title, content, html, sourceName }
+        let results = [];
+
+        const CORS_PROXIES = [
+            { name: 'allorigins', url: 'https://api.allorigins.win/get?url=', wrapJson: true },
+            { name: 'corsproxy', url: 'https://corsproxy.io/?', wrapJson: false },
+            { name: 'thingproxy', url: 'https://thingproxy.freeboard.io/fetch/', wrapJson: false }
+        ];
+
+        // ===== BOOKMARKLET =====
+        // This runs in the user's authenticated browser tab when they click the bookmark.
+        // It walks the DOM to find article content, prefers JSON-LD structured data,
+        // then copies a JSON payload to the clipboard for pasting into this tool.
+        const BOOKMARKLET_SOURCE = `(function(){
+            function txt(el){return (el && (el.innerText || el.textContent) || '').trim();}
+            function fromLd(){
+                var out='';
+                document.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){
+                    try{
+                        var d=JSON.parse(s.textContent);
+                        var items=Array.isArray(d)?d:[d];
+                        items.forEach(function(it){
+                            if(!it) return;
+                            if(it.articleBody && it.articleBody.length>out.length) out=it.articleBody;
+                            if(it['@graph']){
+                                it['@graph'].forEach(function(g){
+                                    if(g.articleBody && g.articleBody.length>out.length) out=g.articleBody;
+                                });
+                            }
+                        });
+                    }catch(e){}
+                });
+                return out;
+            }
+            function fromSelectors(){
+                var sels=['article','[itemprop="articleBody"]','[data-testid="article-body"]','main article','main','[role="main"]','.article-body','.article-content','.story-body','.post-content','.entry-content','#article-body','#story-body'];
+                var best='';
+                sels.forEach(function(sel){
+                    document.querySelectorAll(sel).forEach(function(el){
+                        var t=txt(el);
+                        if(t.length>best.length) best=t;
+                    });
+                });
+                return best;
+            }
+            function fromParagraphs(){
+                var ps=document.querySelectorAll('p');
+                var parts=[];
+                ps.forEach(function(p){
+                    var t=txt(p);
+                    if(t.length>40) parts.push(t);
+                });
+                return parts.join('\\n\\n');
+            }
+            var content=fromLd();
+            if(content.length<400) {
+                var sel=fromSelectors();
+                if(sel.length>content.length) content=sel;
+            }
+            if(content.length<200) {
+                var pp=fromParagraphs();
+                if(pp.length>content.length) content=pp;
+            }
+            var titleEl=document.querySelector('h1');
+            var title=(titleEl?txt(titleEl):'')||document.title||'Untitled';
+            var payload={__extractorPayload:true,version:1,url:location.href,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
+            var json=JSON.stringify(payload);
+            function done(msg){alert('\\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
+            if(navigator.clipboard && navigator.clipboard.writeText){
+                navigator.clipboard.writeText(json).then(function(){done('Article copied to clipboard');},function(){
+                    var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
+                });
+            } else {
+                var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
+            }
+        })();`;
+
+        function buildBookmarkletHref() {
+            // Collapse whitespace, then wrap in javascript: URL
+            const compact = BOOKMARKLET_SOURCE.replace(/\s+/g, ' ').trim();
+            return 'javascript:' + encodeURIComponent(compact);
+        }
+
+        function initBookmarklet() {
+            const href = buildBookmarkletHref();
+            document.getElementById('bookmarkletLink').setAttribute('href', href);
+            document.getElementById('bookmarkletCode').textContent = href;
+        }
+
+        function copyBookmarkletCode() {
+            const code = document.getElementById('bookmarkletCode').textContent;
+            navigator.clipboard.writeText(code).then(
+                () => showToast('Bookmarklet code copied', 'success'),
+                () => showToast('Copy failed — select and copy manually', 'error')
+            );
+        }
+
+        // ===== TABS =====
+        function switchTab(name) {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+        }
+
+        // ===== TOAST =====
+        let toastTimeout;
+        function showToast(message, kind = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + kind;
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => { toast.className = 'toast ' + kind; }, 2800);
+        }
+
+        // ===== QUEUE MANAGEMENT =====
+        function addToQueue(item) {
+            queue.push(item);
+            renderQueue();
+        }
+
+        function removeFromQueue(idx) {
+            queue.splice(idx, 1);
+            renderQueue();
+        }
+
+        function clearQueue() {
+            queue = [];
+            renderQueue();
+        }
+
+        function renderQueue() {
+            const list = document.getElementById('queueList');
+            const count = document.getElementById('queueCount');
+            const clearBtn = document.getElementById('clearAllBtn');
+            const processBtn = document.getElementById('processBtn');
+
+            count.textContent = queue.length;
+            processBtn.disabled = queue.length === 0;
+            clearBtn.style.display = queue.length === 0 ? 'none' : 'inline-block';
+
+            if (queue.length === 0) {
+                list.innerHTML = '<div class="queue-empty">No items yet — add an article from any tab above.</div>';
+                return;
+            }
+
+            list.innerHTML = queue.map((item, i) => {
+                const badgeClass = 'type-' + item.type;
+                const badgeText = {
+                    url: 'URL',
+                    pasted: 'Bookmarklet',
+                    html: 'HTML File',
+                    pdf: 'PDF'
+                }[item.type] || item.type;
+
+                const title = escapeHtml(item.title || item.url || 'Untitled');
+                const meta = escapeHtml(item.sourceName || item.url || '');
+
+                return `
+                    <div class="queue-item">
+                        <div class="queue-item-info">
+                            <div class="queue-item-title">
+                                <span class="type-badge ${badgeClass}">${badgeText}</span>${title}
+                            </div>
+                            <div class="queue-item-meta">${meta}</div>
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="removeFromQueue(${i})">Remove</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        // ===== ADD FROM PASTE =====
+        function addFromPaste() {
+            const raw = document.getElementById('pasteArea').value.trim();
+            if (!raw) {
+                showToast('Paste something first', 'error');
+                return;
+            }
+
+            // Try parsing as bookmarklet payload first
+            try {
+                const data = JSON.parse(raw);
+                if (data && data.__extractorPayload) {
+                    if (!data.content || data.content.length < 50) {
+                        showToast('The bookmarklet captured very little text — the article may not have loaded fully', 'error');
+                        return;
+                    }
+                    addToQueue({
+                        type: 'pasted',
+                        url: data.url,
+                        title: data.title || 'Untitled article',
+                        content: data.content,
+                        sourceName: data.url
+                    });
+                    document.getElementById('pasteArea').value = '';
+                    showToast(`Added "${data.title}" (${data.content.length} chars)`, 'success');
+                    return;
+                }
+            } catch (e) {
+                // Not JSON — fall through to treat as raw text/HTML
+            }
+
+            // Looks like HTML?
+            if (raw.includes('<html') || raw.includes('<body') || raw.includes('<article') || (raw.includes('<p') && raw.includes('</p>'))) {
+                const extracted = extractFromHtml(raw, 'pasted-html');
+                addToQueue({
+                    type: 'pasted',
+                    url: 'pasted-html',
+                    title: extracted.title || 'Pasted HTML',
+                    content: extracted.content,
+                    sourceName: 'Pasted HTML (' + extracted.content.length + ' chars)'
+                });
+                document.getElementById('pasteArea').value = '';
+                showToast('HTML parsed and added', 'success');
+                return;
+            }
+
+            // Otherwise treat as plain text
+            const firstLine = raw.split('\n')[0].slice(0, 80);
+            addToQueue({
+                type: 'pasted',
+                url: 'pasted-text',
+                title: firstLine || 'Pasted text',
+                content: raw,
+                sourceName: 'Pasted plain text (' + raw.length + ' chars)'
+            });
+            document.getElementById('pasteArea').value = '';
+            showToast('Plain text added', 'success');
+        }
+
+        // ===== ADD FROM URL =====
+        function isValidUrl(s) {
+            try {
+                const u = new URL(s);
+                return u.protocol === 'http:' || u.protocol === 'https:';
+            } catch (_) { return false; }
+        }
+
+        function isPdfUrl(url) {
+            const lower = url.toLowerCase();
+            return lower.endsWith('.pdf') || lower.includes('.pdf?') || lower.includes('/pdf/');
+        }
+
+        function addUrl() {
+            const input = document.getElementById('urlInput');
+            const raw = input.value.trim();
+            if (!raw) { showToast('Enter a URL', 'error'); return; }
+
+            // Allow newline-separated batches
+            const candidates = raw.split(/[\n\r]+/).map(s => s.trim()).filter(Boolean);
+            let added = 0, skipped = 0;
+            for (const c of candidates) {
+                if (!isValidUrl(c)) { skipped++; continue; }
+                if (queue.some(q => q.url === c)) { skipped++; continue; }
+                addToQueue({
+                    type: isPdfUrl(c) ? 'pdf' : 'url',
+                    url: c,
+                    title: titleFromUrl(c),
+                    sourceName: c
+                });
+                added++;
+            }
+
+            input.value = '';
+            if (added > 0) {
+                showToast(`Added ${added} URL${added > 1 ? 's' : ''}${skipped ? ` (${skipped} skipped)` : ''}`, 'success');
+            } else {
+                showToast('No valid URLs to add', 'error');
+            }
+        }
+
+        function titleFromUrl(url) {
+            try {
+                const u = new URL(url);
+                const parts = u.pathname.split('/').filter(Boolean);
+                if (parts.length > 0) {
+                    return parts[parts.length - 1].replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+                }
+                return u.hostname.replace(/^www\./, '');
+            } catch (e) { return 'Document'; }
+        }
+
+        // ===== FILE UPLOAD =====
+        function handleFileUpload(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            let added = 0;
+            const promises = [];
+            for (const file of files) {
+                const name = file.name.toLowerCase();
+                if (name.endsWith('.html') || name.endsWith('.htm')) {
+                    promises.push(readHtmlFile(file).then(() => { added++; }));
+                } else if (name.endsWith('.txt')) {
+                    promises.push(readTxtFile(file).then(n => { added += n; }));
+                } else {
+                    showToast(`Skipped ${file.name} (unsupported type)`, 'error');
+                }
+            }
+            Promise.all(promises).then(() => {
+                if (added > 0) showToast(`Loaded ${added} item${added > 1 ? 's' : ''} from files`, 'success');
+                event.target.value = '';
+            });
+        }
+
+        function readHtmlFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const html = e.target.result;
+                    const extracted = extractFromHtml(html, file.name);
+                    addToQueue({
+                        type: 'html',
+                        url: extracted.canonicalUrl || file.name,
+                        title: extracted.title || file.name,
+                        content: extracted.content,
+                        html: html,
+                        sourceName: file.name + ' (' + extracted.content.length + ' chars)'
+                    });
+                    resolve();
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        function readTxtFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const text = e.target.result;
+                    const urls = text.split(/\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#') && isValidUrl(l));
+                    let count = 0;
+                    for (const u of urls) {
+                        if (!queue.some(q => q.url === u)) {
+                            addToQueue({
+                                type: isPdfUrl(u) ? 'pdf' : 'url',
+                                url: u,
+                                title: titleFromUrl(u),
+                                sourceName: u
+                            });
+                            count++;
+                        }
+                    }
+                    resolve(count);
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        // Drag & drop
+        const dropArea = document.getElementById('fileUploadArea');
+        ['dragover', 'dragenter'].forEach(ev => dropArea.addEventListener(ev, e => {
+            e.preventDefault(); dropArea.classList.add('dragover');
+        }));
+        ['dragleave', 'drop'].forEach(ev => dropArea.addEventListener(ev, e => {
+            e.preventDefault(); dropArea.classList.remove('dragover');
+        }));
+        dropArea.addEventListener('drop', e => {
+            if (e.dataTransfer.files.length) {
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+                handleFileUpload({ target: document.getElementById('fileInput') });
+            }
+        });
+
+        // ===== HTML EXTRACTION =====
+        function extractFromHtml(html, sourceLabel) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Pull canonical URL if present
+            let canonicalUrl = '';
+            const linkCanon = doc.querySelector('link[rel="canonical"]');
+            if (linkCanon) canonicalUrl = linkCanon.getAttribute('href') || '';
+            const ogUrl = doc.querySelector('meta[property="og:url"]');
+            if (!canonicalUrl && ogUrl) canonicalUrl = ogUrl.getAttribute('content') || '';
+
+            // Title — prefer og:title or h1 over <title> (which often has site suffix)
+            let title = '';
+            const ogTitle = doc.querySelector('meta[property="og:title"]');
+            if (ogTitle) title = ogTitle.getAttribute('content') || '';
+            if (!title) {
+                const h1 = doc.querySelector('h1');
+                if (h1) title = (h1.innerText || h1.textContent || '').trim();
+            }
+            if (!title && doc.querySelector('title')) {
+                title = doc.querySelector('title').textContent.trim();
+            }
+
+            // Strip noise BEFORE searching for content
+            const noiseSel = 'script, style, noscript, nav, header, footer, aside, form, iframe, .advertisement, .ad, .ads, .sidebar, .related, .recommendations, .comments, .newsletter-signup, [aria-label="advertisement"], [class*="paywall"]:not([class*="content"])';
+            doc.querySelectorAll(noiseSel).forEach(el => el.remove());
+
+            // Strategy 1: JSON-LD articleBody (works on many news sites even without login)
+            let content = '';
+            doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+                try {
+                    const data = JSON.parse(s.textContent);
+                    const items = Array.isArray(data) ? data : [data];
+                    for (const it of items) {
+                        if (!it) continue;
+                        if (it.articleBody && it.articleBody.length > content.length) content = it.articleBody;
+                        if (it['@graph']) {
+                            for (const g of it['@graph']) {
+                                if (g.articleBody && g.articleBody.length > content.length) content = g.articleBody;
+                            }
+                        }
+                    }
+                } catch (e) {}
+            });
+
+            // Strategy 2: Semantic selectors
+            if (content.length < 400) {
+                const selectors = [
+                    'article',
+                    '[itemprop="articleBody"]',
+                    '[data-testid="article-body"]',
+                    'main article',
+                    'main',
+                    '[role="main"]',
+                    '.article-body',
+                    '.article-content',
+                    '.story-body',
+                    '.post-content',
+                    '.entry-content',
+                    '#article-body',
+                    '#story-body'
+                ];
+                for (const sel of selectors) {
+                    const els = doc.querySelectorAll(sel);
+                    for (const el of els) {
+                        const text = (el.innerText || el.textContent || '').trim();
+                        if (text.length > content.length) content = text;
+                    }
+                }
+            }
+
+            // Strategy 3: Paragraph aggregation
+            if (content.length < 200) {
+                const ps = Array.from(doc.querySelectorAll('p'))
+                    .map(p => (p.innerText || p.textContent || '').trim())
+                    .filter(t => t.length > 40);
+                const joined = ps.join('\n\n');
+                if (joined.length > content.length) content = joined;
+            }
+
+            content = content.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+            // Detect if this is probably a JS-rendered shell
+            const jsShell = content.length < 500 && (
+                html.includes('window.__NEXT_DATA__') ||
+                html.includes('window.__INITIAL_STATE__') ||
+                /<noscript>[^<]*JavaScript/i.test(html) ||
+                html.length < 8000
+            );
+
+            return {
+                title: title || sourceLabel,
+                content: content || 'No content could be extracted from this page.',
+                canonicalUrl: canonicalUrl,
+                jsRenderIssue: jsShell
+            };
+        }
+
+        // ===== URL FETCHING (proxies) =====
+        async function fetchViaProxy(url) {
+            const errors = [];
+            for (const proxy of CORS_PROXIES) {
+                try {
+                    const proxyUrl = proxy.url + encodeURIComponent(url);
+                    const resp = await fetch(proxyUrl);
+                    if (!resp.ok) {
+                        errors.push(`${proxy.name}: HTTP ${resp.status}`);
+                        continue;
+                    }
+                    if (proxy.wrapJson) {
+                        const data = await resp.json();
+                        if (data && data.contents) return data.contents;
+                        errors.push(`${proxy.name}: empty response`);
+                    } else {
+                        const text = await resp.text();
+                        if (text) return text;
+                        errors.push(`${proxy.name}: empty body`);
+                    }
+                } catch (e) {
+                    errors.push(`${proxy.name}: ${e.message}`);
+                }
+            }
+            throw new Error('All proxies failed — ' + errors.join('; '));
+        }
+
+        async function processQueueItem(item) {
+            if (item.type === 'pasted') {
+                // Already has content
+                return {
+                    url: item.url,
+                    title: item.title,
+                    content: item.content,
+                    sourceLabel: 'Captured via bookmarklet'
+                };
+            }
+            if (item.type === 'html') {
+                // Already extracted at upload time
+                return {
+                    url: item.url,
+                    title: item.title,
+                    content: item.content,
+                    sourceLabel: 'Saved HTML file'
+                };
+            }
+            if (item.type === 'pdf') {
+                return {
+                    url: item.url,
+                    title: item.title + ' (PDF)',
+                    content: `This URL points to a PDF file: ${item.url}\n\nDownload it directly using the "Open PDF" button.`,
+                    isPdf: true,
+                    sourceLabel: 'External PDF'
+                };
+            }
+            // type === 'url'
+            const html = await fetchViaProxy(item.url);
+            const extracted = extractFromHtml(html, item.url);
+            return {
+                url: item.url,
+                title: extracted.title,
+                content: extracted.content,
+                jsRenderIssue: extracted.jsRenderIssue,
+                sourceLabel: 'Fetched via CORS proxy'
+            };
+        }
+
+        async function processQueue() {
+            if (queue.length === 0) return;
+
+            results = [];
+            document.getElementById('progressSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+
+            const processBtn = document.getElementById('processBtn');
+            processBtn.disabled = true;
+            processBtn.textContent = '🔄 Processing...';
+
+            for (let i = 0; i < queue.length; i++) {
+                updateProgress(i, queue.length, queue[i].title);
+                try {
+                    const res = await processQueueItem(queue[i]);
+                    results.push(res);
+                } catch (err) {
+                    results.push({
+                        url: queue[i].url,
+                        title: 'Error: ' + (queue[i].title || queue[i].url),
+                        content: `Failed to process this item:\n\n${err.message}\n\nIf this is a paywalled article, use the Bookmarklet tab instead.`,
+                        error: true
+                    });
+                }
+            }
+
+            updateProgress(queue.length, queue.length, 'Done');
+            setTimeout(() => {
+                document.getElementById('progressSection').classList.add('hidden');
+                showResults();
+                processBtn.disabled = false;
+                processBtn.textContent = '🔄 Process All & Generate PDFs';
+            }, 400);
+        }
+
+        function updateProgress(current, total, label) {
+            const pct = (current / total) * 100;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('status').textContent =
+                current >= total ? 'Done.' : `Processing ${current + 1} of ${total}: ${label || ''}`;
+        }
+
+        // ===== RESULTS =====
+        function showResults() {
+            document.getElementById('resultsSection').classList.remove('hidden');
+            const container = document.getElementById('results');
+
+            container.innerHTML = results.map((r, i) => {
+                let statusClass = 'status-success', statusText = '✅ Ready';
+                if (r.error) { statusClass = 'status-error'; statusText = '❌ Failed'; }
+                else if (r.isPdf) { statusClass = 'status-info'; statusText = '📄 External PDF'; }
+                else if (r.jsRenderIssue) { statusClass = 'status-warning'; statusText = '⚠️ Partial content'; }
+                else if (r.content && r.content.length < 500) { statusClass = 'status-warning'; statusText = '⚠️ Short content'; }
+
+                let buttons = '';
+                if (!r.error || r.content) {
+                    buttons += `<button class="btn btn-purple btn-small" onclick="downloadPdf(${i})">📄 Download PDF</button>`;
+                    buttons += `<button class="btn btn-ghost btn-small" onclick="downloadText(${i})">📝 Download .txt</button>`;
+                }
+                if (r.isPdf) {
+                    buttons = `<a href="${escapeHtml(r.url)}" target="_blank" class="btn btn-orange btn-small">📥 Open PDF</a>` + buttons;
+                }
+
+                const preview = r.content ? escapeHtml(r.content.slice(0, 220)) + (r.content.length > 220 ? '...' : '') : '';
+
+                return `
+                    <div class="result-item">
+                        <div class="result-info">
+                            <div class="result-title">${escapeHtml(r.title || 'Untitled')}</div>
+                            <div class="result-source">${escapeHtml(r.url || '')}</div>
+                            ${preview ? `<div class="result-preview">${preview}</div>` : ''}
+                        </div>
+                        <div class="result-actions">
+                            <span class="status-indicator ${statusClass}">${statusText}</span>
+                            ${buttons}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ===== PDF GENERATION =====
+        function downloadPdf(idx) {
+            const r = results[idx];
+            if (!window.jspdf) { showToast('PDF library not loaded', 'error'); return; }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
+            const maxWidth = pageWidth - 2 * margin;
+            let y = margin;
+
+            function add(text, size, bold, color) {
+                doc.setFontSize(size);
+                doc.setTextColor(color[0], color[1], color[2]);
+                doc.setFont(undefined, bold ? 'bold' : 'normal');
+                const lines = doc.splitTextToSize(text, maxWidth);
+                for (const line of lines) {
+                    if (y > pageHeight - margin - 15) { doc.addPage(); y = margin; }
+                    doc.text(line, margin, y);
+                    y += size * 0.45 + 2;
+                }
+            }
+
+            add(r.title || 'Document', 16, true, [0, 0, 0]);
+            y += 4;
+            add('Source: ' + (r.url || 'N/A'), 9, false, [100, 100, 100]);
+            add('Generated: ' + new Date().toLocaleString(), 9, false, [150, 150, 150]);
+            if (r.sourceLabel) add('Method: ' + r.sourceLabel, 9, false, [150, 150, 150]);
+            if (r.jsRenderIssue) add('Note: Page uses JavaScript rendering — content may be incomplete', 9, false, [200, 130, 30]);
+            y += 4;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, y, pageWidth - margin, y);
+            y += 8;
+            add(r.content || 'No content', 11, false, [0, 0, 0]);
+
+            const pages = doc.internal.getNumberOfPages();
+            for (let p = 1; p <= pages; p++) {
+                doc.setPage(p);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                const txt = `Page ${p} of ${pages}`;
+                doc.text(txt, pageWidth - margin - doc.getTextWidth(txt), pageHeight - 10);
+            }
+
+            doc.save(safeFilename(r.title) + '.pdf');
+        }
+
+        function downloadText(idx) {
+            const r = results[idx];
+            const text = `${r.title || 'Untitled'}\n${r.url || ''}\nGenerated: ${new Date().toLocaleString()}\n\n${'='.repeat(60)}\n\n${r.content || ''}`;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeFilename(r.title) + '.txt';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function safeFilename(s) {
+            return (s || 'document')
+                .replace(/[^a-zA-Z0-9\s_-]/g, '')
+                .replace(/\s+/g, '_')
+                .toLowerCase()
+                .slice(0, 60) || 'document_' + Date.now();
+        }
+
+        // ===== INIT =====
+        document.getElementById('urlInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') addUrl();
+        });
+
+        initBookmarklet();
+        renderQueue();
+        console.log('Article to PDF Extractor — ready');
+    </script>
+</body>
+</html>
