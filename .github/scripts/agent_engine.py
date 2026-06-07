@@ -1,21 +1,8 @@
 import os
-import json
+import re
 import time
 from google import genai
 from google.genai import types
-
-def clean_json_string(text):
-    """Strips markdown code block wrappers if the AI accidentally includes them."""
-    text = text.strip()
-    if text.startswith("```"):
-        # Remove opening lines like ```json or ```
-        first_newline = text.find("\n")
-        if first_newline != -1:
-            text = text[first_newline:].strip()
-        # Remove closing lines like ```
-        if text.endswith("```"):
-            text = text[:-3].strip()
-    return text
 
 def main():
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -26,7 +13,6 @@ def main():
         print("❌ Error: Missing GEMINI_API_KEY secret in GitHub settings.")
         exit(1)
 
-    # 1. Read the current repository state
     try:
         with open("index.html", "r", encoding="utf-8") as f:
             current_code = f.read()
@@ -36,7 +22,6 @@ def main():
         print(f"❌ Error reading codebase files: {e}")
         exit(1)
 
-    # 2. Construct the systemic engineering prompt
     prompt = f"""
     You are an autonomous senior software engineer. Your task is to update a single-file application based on a GitHub issue.
     
@@ -53,10 +38,13 @@ def main():
     1. Implement the requested changes perfectly inside the single-file HTML/JS structure.
     2. Maintain the zero-dependency, pure vanilla JS architecture.
     3. Update the `roadmap.md` file by marking the implemented feature as completed '[x]'.
-    4. Return your response in a clear JSON structure containing exactly two keys: "html" and "roadmap". Do not include Markdown code blocks inside the JSON fields.
+    
+    CRITICAL FORMATTING INSTRUCTION:
+    Do not use JSON. You must return exactly two markdown code blocks.
+    First, the updated HTML file wrapped in ```html ... ```
+    Second, the updated roadmap wrapped in ```markdown ... ```
     """
 
-    # 3. Call the Gemini API with an automatic retry loop for resilience
     raw_text = None
     max_retries = 3
     delay_seconds = 15
@@ -69,52 +57,47 @@ def main():
                 model='gemini-2.5-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
                     temperature=0.2
                 )
             )
             raw_text = response.text
-            break  # Success, exit the retry loop
-            
+            break
         except Exception as e:
             error_msg = str(e)
-            # Check for common temporary server or rate limit errors
             if "503" in error_msg or "429" in error_msg or "UNAVAILABLE" in error_msg:
-                print(f"⚠️ Server is currently congested or rate-limited. Retrying in {delay_seconds} seconds...")
+                print(f"⚠️ Server busy. Retrying in {delay_seconds} seconds...")
                 time.sleep(delay_seconds)
-                # Double the wait time for the next attempt (exponential backoff)
                 delay_seconds *= 2 
             else:
-                print(f"❌ Unrecoverable API error encountered: {e}")
+                print(f"❌ Unrecoverable API error: {e}")
                 exit(1)
 
     if not raw_text:
-        print(f"❌ Gemini API Call failed after {max_retries} attempts due to server availability.")
+        print(f"❌ Gemini API Call failed after {max_retries} attempts.")
         exit(1)
 
-    # 4. Sanitize and parse JSON safely
+    # Robust Markdown Extraction
     try:
-        cleaned_text = clean_json_string(raw_text)
-        result = json.loads(cleaned_text)
+        html_match = re.search(r'```html\n(.*?)\n```', raw_text, re.DOTALL)
+        md_match = re.search(r'```markdown\n(.*?)\n```', raw_text, re.DOTALL)
         
-        if "html" not in result or "roadmap" not in result:
-            raise KeyError("Missing required keys 'html' or 'roadmap' in AI response.")
+        if not html_match or not md_match:
+            raise ValueError("AI failed to return the requested markdown blocks.")
             
+        new_html = html_match.group(1).strip()
+        new_roadmap = md_match.group(1).strip()
+        
     except Exception as e:
-        print("❌ Failed to parse JSON from AI response.")
-        print(f"Parsing Error: {e}")
-        print("--- RAW AI RESPONSE START ---")
-        print(raw_text)
-        print("--- RAW AI RESPONSE END ---")
+        print("❌ Failed to extract code from AI response.")
+        print(f"Extraction Error: {e}")
         exit(1)
 
-    # 5. Overwrite files locally for the GitHub Action to commit
     try:
         with open("index.html", "w", encoding="utf-8") as f:
-            f.write(result["html"])
+            f.write(new_html)
             
         with open("roadmap.md", "w", encoding="utf-8") as f:
-            f.write(result["roadmap"])
+            f.write(new_roadmap)
         print("✅ Codebase successfully iterated by AI Agent.")
     except Exception as e:
         print(f"❌ Failed to write updated files to workspace: {e}")
