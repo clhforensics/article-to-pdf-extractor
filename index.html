@@ -417,7 +417,7 @@
 
         <div class="main-content">
             <div class="info-banner">
-                <strong>How this handles paywalls:</strong> A browser-only tool can't log in to WSJ, NYT, JSTOR, etc. on its own, and you've said you don't want to give it credentials — good call. Instead, this tool piggybacks on <em>your</em> already-logged-in browser. Use the <strong>Bookmarklet</strong> tab for paywalled articles (one click on the article page, paste here), the <strong>Saved HTML</strong> tab for pages you've saved from your browser, or the <strong>URL Fetch</strong> tab for public pages.
+                <strong>How this handles content:</strong> This browser-only tool can't log in to sites or bypass bot detection on its own. It piggybacks on <em>your</em> already-logged-in browser. Use the <strong>Bookmarklet</strong> tab for paywalled articles or public sites that block automated fetches (one click on the article page, paste here). Use the <strong>Saved HTML</strong> tab for pages you've saved from your browser. Use the <strong>URL Fetch</strong> tab only for truly public and proxy-friendly pages.
             </div>
 
             <div class="workflow-tabs" role="tablist">
@@ -492,7 +492,7 @@
             <div class="tab-panel" id="tab-url">
                 <h3>Fetch public URLs via CORS proxy</h3>
                 <p style="color: #5d6d7e; margin-bottom: 18px; line-height: 1.5;">
-                    Works for publicly accessible pages and PDFs. <strong>Will not work for paywalled or login-required content</strong> — use the Bookmarklet or Saved HTML tab for those.
+                    Works for publicly accessible pages and PDFs that do not block automated requests. <strong>Will not work for paywalled, login-required, or bot-protected content.</strong> If a public URL fails, try the Bookmarklet or Saved HTML tab instead.
                 </p>
 
                 <div class="row">
@@ -515,7 +515,7 @@
                 </div>
                 <div id="queueList">
                     <div class="queue-empty">No items yet — add an article from any tab above.</div>
-                </div>
+                }
             </div>
 
             <button class="btn btn-success btn-full" id="processBtn" onclick="processQueue()" disabled style="margin-top: 20px;">
@@ -747,7 +747,7 @@
         }
 
         function escapeHtml(s) {
-            return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
         }
 
         // ===== ADD FROM PASTE =====
