@@ -1,0 +1,40 @@
+name: Autonomous AI Developer
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  autonomous_code:
+    if: contains(github.event.issue.labels.*.name, 'ai-build')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install google-genai
+
+      - name: Run AI Agent Engine
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python .github/scripts/agent_engine.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "Autonomous AI Agent"
+          git config --global user.email "ai-agent@github.com"
+          git add index.html roadmap.md
+          git commit -m "Autonomous build: Fixes #${{ github.event.issue.number }} - $ISSUE_TITLE"
+          git push
