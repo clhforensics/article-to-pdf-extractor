@@ -433,6 +433,16 @@
                     The bookmarklet runs inside your browser tab where you're already authenticated, so it sees the full article — no credentials shared with this tool.
                 </p>
 
+                <!-- NEW SAFARI INSTRUCTION -->
+                <div class="info-banner" style="margin-bottom: 20px; background: #fef5e1; border-left-color: #f39c12;">
+                    <strong>Heads up, Safari users!</strong> Due to security restrictions, you cannot paste JavaScript directly into Safari's URL bar and press Enter. Please use one of these methods:
+                    <ol style="margin-top: 8px; margin-left: 20px;">
+                        <li><strong>Drag the button below</strong> to your bookmarks bar.</li>
+                        <li><strong>Manually create a new bookmark</strong> and paste the code into its URL field (see "Or copy the bookmarklet code manually" below).</li>
+                    </ol>
+                </div>
+                <!-- END NEW SAFARI INSTRUCTION -->
+
                 <div class="step">
                     <div class="step-num">1</div>
                     <div class="step-body">
@@ -515,7 +525,7 @@
                 </div>
                 <div id="queueList">
                     <div class="queue-empty">No items yet — add an article from any tab above.</div>
-                }
+                </div>
             </div>
 
             <button class="btn btn-success btn-full" id="processBtn" onclick="processQueue()" disabled style="margin-top: 20px;">
