@@ -3,7 +3,7 @@
 This roadmap outlines the strategic feature pipeline for transforming the Article to PDF Extractor into a comprehensive, privacy-first Personal Knowledge Management (PKM) tool.
 
 ## Phase 1: Core UX and Privacy (Near-Term)
-- [ ] **Clean Room Extraction Mode:** Aggressively strip out all non-essential metadata, tracking tokens in URLs, and hidden `<iframe>` elements during DOM parsing to ensure an "air-gapped" and private document.
+- [x] **Clean Room Extraction Mode:** Aggressively strip out all non-essential metadata, tracking tokens in URLs, and hidden `<iframe>` elements during DOM parsing to ensure an "air-gapped" and private document.
 - [ ] **Code Block & Syntax Highlighting Preservation:** Retain formatting, monospace fonts, and background shading for `<pre>` and `<code>` tags, ensuring technical articles and documentation are rendered cleanly.
 - [ ] **Adaptive Typographic Output ("Reading Lenses"):** Introduce distinct rendering styles before PDF generation:
   - *Bionic Reading Mode:* Bold initial letters to guide the eyes.

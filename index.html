@@ -547,6 +547,24 @@
             { name: 'thingproxy', url: 'https://thingproxy.freeboard.io/fetch/', wrapJson: false }
         ];
 
+        // Helper to clean URLs from tracking parameters and hash fragments
+        function cleanUrl(url) {
+            if (!url) return '';
+            try {
+                const u = new URL(url);
+                const trackingParams = [
+                    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                    'ref', 'referrer', 'gclid', 'fbclid', '_ga', '_gl', 'ig_cid', 'ig_rid',
+                    's_cid', 'cmpid', 'mc_cid', 'mc_eid', 'trk', 'src', 'origin', 'campaign_id'
+                ];
+                trackingParams.forEach(param => u.searchParams.delete(param));
+                u.hash = ''; // Aggressively remove hash fragments
+                return u.toString();
+            } catch (e) {
+                return url; // Return original if not a valid URL
+            }
+        }
+
         // ===== BOOKMARKLET =====
         // This runs in the user's authenticated browser tab when they click the bookmark.
         // It walks the DOM to find article content, prefers JSON-LD structured data,
@@ -562,7 +580,7 @@
                         items.forEach(function(it){
                             if(!it) return;
                             if(it.articleBody && it.articleBody.length>out.length) out=it.articleBody;
-                            if(it['@graph']){
+                            if(it['@graph']){ // Handle @graph structure common in some JSON-LD
                                 it['@graph'].forEach(function(g){
                                     if(g.articleBody && g.articleBody.length>out.length) out=g.articleBody;
                                 });
@@ -590,8 +608,27 @@
                     var t=txt(p);
                     if(t.length>40) parts.push(t);
                 });
-                return parts.join('\\n\\n');
+                return parts.join('\n\n');
             }
+
+            // Clean URL function for bookmarklet
+            function cleanUrlBookmarklet(url) {
+                if (!url) return '';
+                try {
+                    var u = new URL(url);
+                    var trackingParams = [
+                        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                        'ref', 'referrer', 'gclid', 'fbclid', '_ga', '_gl', 'ig_cid', 'ig_rid',
+                        's_cid', 'cmpid', 'mc_cid', 'mc_eid', 'trk', 'src', 'origin', 'campaign_id'
+                    ];
+                    trackingParams.forEach(function(param) { u.searchParams.delete(param); });
+                    u.hash = ''; // Aggressively remove hash fragments
+                    return u.toString();
+                } catch (e) {
+                    return url;
+                }
+            }
+
             var content=fromLd();
             if(content.length<400) {
                 var sel=fromSelectors();
@@ -603,9 +640,10 @@
             }
             var titleEl=document.querySelector('h1');
             var title=(titleEl?txt(titleEl):'')||document.title||'Untitled';
-            var payload={__extractorPayload:true,version:1,url:location.href,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
+            var cleanedUrl = cleanUrlBookmarklet(location.href); // Apply cleaning here
+            var payload={__extractorPayload:true,version:1,url:cleanedUrl,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
             var json=JSON.stringify(payload);
-            function done(msg){alert('\\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
+            function done(msg){alert('\u2713 '+msg+'\n\nTitle: '+title+'\nLength: '+content.length+' characters\n\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
             if(navigator.clipboard && navigator.clipboard.writeText){
                 navigator.clipboard.writeText(json).then(function(){done('Article copied to clipboard');},function(){
                     var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
@@ -709,7 +747,7 @@
         }
 
         function escapeHtml(s) {
-            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
         }
 
         // ===== ADD FROM PASTE =====
@@ -794,12 +832,13 @@
             let added = 0, skipped = 0;
             for (const c of candidates) {
                 if (!isValidUrl(c)) { skipped++; continue; }
-                if (queue.some(q => q.url === c)) { skipped++; continue; }
+                const cleanedC = cleanUrl(c); // Apply cleaning here
+                if (queue.some(q => q.url === cleanedC)) { skipped++; continue; } // Check against cleaned URL
                 addToQueue({
-                    type: isPdfUrl(c) ? 'pdf' : 'url',
-                    url: c,
-                    title: titleFromUrl(c),
-                    sourceName: c
+                    type: isPdfUrl(cleanedC) ? 'pdf' : 'url',
+                    url: cleanedC, // Store cleaned URL
+                    title: titleFromUrl(cleanedC),
+                    sourceName: c // Keep original for display if needed, or use cleaned
                 });
                 added++;
             }
@@ -878,7 +917,7 @@
                         if (!queue.some(q => q.url === u)) {
                             addToQueue({
                                 type: isPdfUrl(u) ? 'pdf' : 'url',
-                                url: u,
+                                url: cleanUrl(u), // Clean URL from text file
                                 title: titleFromUrl(u),
                                 sourceName: u
                             });
@@ -912,12 +951,12 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
 
-            // Pull canonical URL if present
+            // Pull canonical URL if present and clean it
             let canonicalUrl = '';
             const linkCanon = doc.querySelector('link[rel="canonical"]');
-            if (linkCanon) canonicalUrl = linkCanon.getAttribute('href') || '';
+            if (linkCanon) canonicalUrl = cleanUrl(linkCanon.getAttribute('href') || '');
             const ogUrl = doc.querySelector('meta[property="og:url"]');
-            if (!canonicalUrl && ogUrl) canonicalUrl = ogUrl.getAttribute('content') || '';
+            if (!canonicalUrl && ogUrl) canonicalUrl = cleanUrl(ogUrl.getAttribute('content') || '');
 
             // Title — prefer og:title or h1 over <title> (which often has site suffix)
             let title = '';
@@ -931,8 +970,19 @@
                 title = doc.querySelector('title').textContent.trim();
             }
 
-            // Strip noise BEFORE searching for content
-            const noiseSel = 'script, style, noscript, nav, header, footer, aside, form, iframe, .advertisement, .ad, .ads, .sidebar, .related, .recommendations, .comments, .newsletter-signup, [aria-label="advertisement"], [class*="paywall"]:not([class*="content"])';
+            // Aggressively strip noise BEFORE searching for content
+            const noiseSel = `
+                script, style, noscript, nav, header, footer, aside, form,
+                iframe, svg, audio, video, picture, source, canvas, object, embed,
+                link:not([rel="canonical"]):not([rel="alternate"]), /* Remove all links except canonical/alternate */
+                meta:not([charset]):not([name="viewport"]), /* Remove all meta except essential ones */
+                .advertisement, .ad, .ads, .sidebar, .related, .recommendations, .comments, .newsletter-signup,
+                [aria-label="advertisement"], [class*="paywall"]:not([class*="content"]),
+                [data-track], [data-analytics], [data-ad], [data-component="Ad"], [data-qa="ad"],
+                .track, .analytics, .ad-container, .cookie-banner, .gdpr-consent,
+                .modal, .overlay, .popup, .sticky, .fixed, .share-bar, .social-share,
+                [hidden], [style*="display:none"], [style*="visibility:hidden"]
+            `;
             doc.querySelectorAll(noiseSel).forEach(el => el.remove());
 
             // Strategy 1: JSON-LD articleBody (works on many news sites even without login)
