@@ -604,119 +604,93 @@
         // It walks the DOM to find article content, prefers JSON-LD structured data,
         // then copies a JSON payload to the clipboard for pasting into this tool.
         const BOOKMARKLET_SOURCE = `(function(){
-            function txt(el){return (el && (el.innerText || el.textContent) || '').trim();}
+            function norm(s){return (s||'').replace(/\\s+/g,' ').trim();}
+            function txt(el){return norm(el && (el.innerText || el.textContent));}
+            function walkLd(node,out){
+                if(!node) return;
+                if(Array.isArray(node)){ node.forEach(function(x){walkLd(x,out)}); return; }
+                if(typeof node==='object'){
+                    if(typeof node.articleBody==='string' && node.articleBody.length>out.best.length) out.best=node.articleBody;
+                    Object.keys(node).forEach(function(k){ if(k==='@graph' || k==='mainEntity' || k==='mainEntityOfPage' || k==='hasPart') walkLd(node[k],out); });
+                }
+            }
             function fromLd(){
-                var out='';
+                var out={best:''};
                 document.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){
-                    try{
-                        var d=JSON.parse(s.textContent);
-                        var items=Array.isArray(d)?d:[d];
-                        items.forEach(function(it){
-                            if(!it) return;
-                            if(it.articleBody && it.articleBody.length>out.length) out=it.articleBody;
-                            if(it['@graph']){ // Handle @graph structure common in some JSON-LD
-                                it['@graph'].forEach(function(g){
-                                    if(g.articleBody && g.articleBody.length>out.length) out=g.articleBody;
-                                });
-                            }
-                        });
-                    }catch(e){}
+                    try{ walkLd(JSON.parse(s.textContent), out); }catch(e){}
                 });
-                return out;
+                return norm(out.best);
+            }
+            function cloneClean(el){
+                var c=el.cloneNode(true);
+                c.querySelectorAll('script,style,noscript,nav,header,footer,aside,form,iframe,svg,button,input,select,textarea,.ad,.ads,.advertisement,.newsletter,.related,.comments,.share,[aria-label*="advertisement" i],[class*="cookie" i],[class*="modal" i],[class*="popup" i]').forEach(function(n){n.remove();});
+                return c;
+            }
+            function score(el){
+                var t=txt(el);
+                if(t.length<120) return null;
+                var p=el.querySelectorAll('p').length;
+                var links=Array.prototype.reduce.call(el.querySelectorAll('a'),function(n,a){return n+txt(a).length;},0);
+                var density=links/Math.max(t.length,1);
+                var s=t.length + (p*180) - (density*1200);
+                return {text:t,score:s};
             }
             function fromSelectors(){
-                var sels=['article','[itemprop="articleBody"]','[data-testid="article-body"]','main article','main','[role="main"]','.article-body','.article-content','.story-body','.post-content','.entry-content','#article-body','#story-body'];
-                var best='';
+                var sels=['article','[itemprop="articleBody"]','[data-testid*="article" i]','[data-testid*="story" i]','[class*="article" i]','[class*="story" i]','[class*="body" i]','main','[role="main"]','.post-content','.entry-content'];
+                var best={text:'',score:0};
                 sels.forEach(function(sel){
                     document.querySelectorAll(sel).forEach(function(el){
-                        var t=txt(el);
-                        if(t.length>best.length) best=t;
+                        var r=score(cloneClean(el));
+                        if(r && r.score>best.score) best=r;
                     });
                 });
-                return best;
+                return best.text;
             }
             function fromParagraphs(){
-                var ps=document.querySelectorAll('p');
-                var parts=[];
-                ps.forEach(function(p){
+                var seen={}, parts=[];
+                document.querySelectorAll('p').forEach(function(p){
                     var t=txt(p);
-                    if(t.length>40) parts.push(t);
+                    if(t.length>=45 && !seen[t]){seen[t]=1; parts.push(t);}
                 });
                 return parts.join('\\n\\n');
             }
-
-            // Clean URL function for bookmarklet
+            function meta(name){var e=document.querySelector('meta[property="'+name+'"],meta[name="'+name+'"]'); return e?norm(e.getAttribute('content')):'';}
             function cleanUrlBookmarklet(url) {
                 if (!url) return '';
                 try {
                     var u = new URL(url);
-                    var trackingParams = [
-                        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-                        'ref', 'referrer', 'gclid', 'fbclid', '_ga', '_gl', 'ig_cid', 'ig_rid',
-                        's_cid', 'cmpid', 'mc_cid', 'mc_eid', 'trk', 'src', 'origin', 'campaign_id'
-                    ];
-                    trackingParams.forEach(function(param) { u.searchParams.delete(param); });
-                    u.hash = ''; // Aggressively remove hash fragments
+                    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','ref','referrer','gclid','fbclid','_ga','_gl','ig_cid','ig_rid','s_cid','cmpid','mc_cid','mc_eid','trk','src','origin','campaign_id'].forEach(function(param) { u.searchParams.delete(param); });
+                    u.hash = '';
                     return u.toString();
-                } catch (e) {
-                    return url;
-                }
+                } catch (e) { return url; }
             }
-
             var content=fromLd();
-            if(content.length<400) {
-                var sel=fromSelectors();
-                if(sel.length>content.length) content=sel;
-            }
-            if(content.length<200) {
-                var pp=fromParagraphs();
-                if(pp.length>content.length) content=pp;
-            }
-            var titleEl=document.querySelector('h1');
-            var title=(titleEl?txt(titleEl):'')||document.title||'Untitled';
-            var cleanedUrl = cleanUrlBookmarklet(location.href); // Apply cleaning here
-            var payload={__extractorPayload:true,version:1,url:cleanedUrl,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
+            if(content.length<400){ var sel=fromSelectors(); if(sel.length>content.length) content=sel; }
+            if(content.length<250){ var pp=fromParagraphs(); if(pp.length>content.length) content=pp; }
+            content=content.replace(/\\n{3,}/g,'\\n\\n').trim();
+            var h1=document.querySelector('h1');
+            var title=meta('og:title') || (h1?txt(h1):'') || document.title || 'Untitled';
+            var cleanedUrl = cleanUrlBookmarklet(location.href);
+            var payload={__extractorPayload:true,version:2,url:cleanedUrl,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
             var json=JSON.stringify(payload);
-
             function done(msg){alert('\\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
-
             function fallbackCopy() {
                 var ta = document.createElement('textarea');
                 ta.value = json;
-                // Make the textarea invisible and off-screen
-                ta.style.position = 'absolute';
-                ta.style.left = '-9999px';
-                ta.style.top = '-9999px';
-                document.body.appendChild(ta);
-                ta.select();
+                ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.focus(); ta.select();
                 var success = false;
-                try {
-                    success = document.execCommand('copy');
-                } catch (e) {
-                    // console.error('execCommand copy failed:', e); // For debugging, not in production bookmarklet
-                }
+                try { success = document.execCommand('copy'); } catch (e) {}
                 document.body.removeChild(ta);
-
-                if (success) {
-                    done('Article copied (fallback method)');
-                } else {
-                    // If execCommand failed, prompt for manual copy
-                    prompt('Copy this manually (Ctrl+C or Cmd+C):', json);
-                    done('Please copy manually from the prompt.'); // Inform user even if manual copy is needed
-                }
+                if (success) done('Article copied (fallback method)');
+                else { prompt('Copy this manually (Ctrl+C or Cmd+C):', json); }
             }
-
+            if (!content || content.length<80) {
+                alert('Only '+(content?content.length:0)+' characters were found. Scroll/load the full article, close overlays, then try again.');
+            }
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(json).then(function() {
-                    done('Article copied to clipboard');
-                }).catch(function() {
-                    // navigator.clipboard.writeText failed, try fallback
-                    fallbackCopy();
-                });
-            } else {
-                // navigator.clipboard not available, use fallback
-                fallbackCopy();
-            }
+                navigator.clipboard.writeText(json).then(function(){ done('Article copied to clipboard'); }).catch(fallbackCopy);
+            } else fallbackCopy();
         })();`;
 
         function buildBookmarkletHref() {
@@ -1017,64 +991,81 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
 
-            // Pull canonical URL if present and clean it
+            const normalize = (s) => (s || '')
+                .replace(/\u00a0/g, ' ')
+                .replace(/[ \t]+\n/g, '\n')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/[ \t]{2,}/g, ' ')
+                .trim();
+
+            const getMeta = (...names) => {
+                for (const name of names) {
+                    const el = doc.querySelector(`meta[property="${name}"], meta[name="${name}"]`);
+                    const val = el && el.getAttribute('content');
+                    if (val) return normalize(val);
+                }
+                return '';
+            };
+
             let canonicalUrl = '';
             const linkCanon = doc.querySelector('link[rel="canonical"]');
             if (linkCanon) canonicalUrl = cleanUrl(linkCanon.getAttribute('href') || '');
-            const ogUrl = doc.querySelector('meta[property="og:url"]');
-            if (!canonicalUrl && ogUrl) canonicalUrl = cleanUrl(ogUrl.getAttribute('content') || '');
+            if (!canonicalUrl) canonicalUrl = cleanUrl(getMeta('og:url'));
 
-            // Title — prefer og:title or h1 over <title> (which often has site suffix)
-            let title = '';
-            const ogTitle = doc.querySelector('meta[property="og:title"]');
-            if (ogTitle) title = ogTitle.getAttribute('content') || '';
+            let title = getMeta('og:title', 'twitter:title');
             if (!title) {
                 const h1 = doc.querySelector('h1');
-                if (h1) title = (h1.innerText || h1.textContent || '').trim();
+                if (h1) title = normalize(h1.textContent);
             }
-            if (!title && doc.querySelector('title')) {
-                title = doc.querySelector('title').textContent.trim();
-            }
+            if (!title && doc.querySelector('title')) title = normalize(doc.querySelector('title').textContent);
 
-            // Aggressively strip noise BEFORE searching for content
+            // Strategy 1 must run BEFORE script tags are removed.
+            let content = '';
+            const visitLd = (node) => {
+                if (!node) return;
+                if (Array.isArray(node)) { node.forEach(visitLd); return; }
+                if (typeof node === 'object') {
+                    if (typeof node.articleBody === 'string' && node.articleBody.length > content.length) {
+                        content = node.articleBody;
+                    }
+                    ['@graph', 'mainEntity', 'mainEntityOfPage', 'hasPart'].forEach(k => visitLd(node[k]));
+                }
+            };
+            doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+                try { visitLd(JSON.parse(s.textContent)); } catch (e) {}
+            });
+            content = normalize(content);
+
             const noiseSel = `
                 script, style, noscript, nav, header, footer, aside, form,
                 iframe, svg, audio, video, picture, source, canvas, object, embed,
-                link:not([rel="canonical"]):not([rel="alternate"]), /* Remove all links except canonical/alternate */
-                meta:not([charset]):not([name="viewport"]), /* Remove all meta except essential ones */
+                button, input, select, textarea,
                 .advertisement, .ad, .ads, .sidebar, .related, .recommendations, .comments, .newsletter-signup,
-                [aria-label="advertisement"], [class*="paywall"]:not([class*="content"]),
-                [data-track], [data-analytics], [data-ad], [data-component="Ad"], [data-qa="ad"],
-                .track, .analytics, .ad-container, .cookie-banner, .gdpr-consent,
+                [aria-label*="advertisement" i], [data-ad], [data-component="Ad"], [data-qa="ad"],
+                .ad-container, .cookie-banner, .gdpr-consent,
                 .modal, .overlay, .popup, .sticky, .fixed, .share-bar, .social-share,
                 [hidden], [style*="display:none"], [style*="visibility:hidden"]
             `;
             doc.querySelectorAll(noiseSel).forEach(el => el.remove());
 
-            // Strategy 1: JSON-LD articleBody (works on many news sites even without login)
-            let content = '';
-            doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
-                try {
-                    const data = JSON.parse(s.textContent);
-                    const items = Array.isArray(data) ? data : [data];
-                    for (const it of items) {
-                        if (!it) continue;
-                        if (it.articleBody && it.articleBody.length > content.length) content = it.articleBody;
-                        if (it['@graph']) {
-                            for (const g of it['@graph']) {
-                                if (g.articleBody && g.articleBody.length > content.length) content = g.articleBody;
-                            }
-                        }
-                    }
-                } catch (e) {}
-            });
+            const getText = (el) => normalize(el ? el.textContent : '');
+            const linkTextLength = (el) => Array.from(el.querySelectorAll('a')).reduce((n, a) => n + getText(a).length, 0);
+            const scoreElement = (el) => {
+                const text = getText(el);
+                if (text.length < 120) return null;
+                const paragraphCount = el.querySelectorAll('p').length;
+                const headingCount = el.querySelectorAll('h1,h2,h3').length;
+                const linkDensity = linkTextLength(el) / Math.max(text.length, 1);
+                const score = text.length + paragraphCount * 180 + headingCount * 40 - linkDensity * 1200;
+                return { text, score };
+            };
 
-            // Strategy 2: Semantic selectors
             if (content.length < 400) {
                 const selectors = [
                     'article',
                     '[itemprop="articleBody"]',
-                    '[data-testid="article-body"]',
+                    '[data-testid*="article" i]',
+                    '[data-testid*="story" i]',
                     'main article',
                     'main',
                     '[role="main"]',
@@ -1083,52 +1074,83 @@
                     '.story-body',
                     '.post-content',
                     '.entry-content',
+                    '[class*="article" i]',
+                    '[class*="story" i]',
                     '#article-body',
                     '#story-body'
                 ];
+                let best = { text: '', score: 0 };
                 for (const sel of selectors) {
-                    const els = doc.querySelectorAll(sel);
-                    for (const el of els) {
-                        const text = (el.innerText || el.textContent || '').trim();
-                        if (text.length > content.length) content = text;
-                    }
+                    doc.querySelectorAll(sel).forEach(el => {
+                        const r = scoreElement(el);
+                        if (r && r.score > best.score) best = r;
+                    });
                 }
+                if (best.text.length > content.length) content = best.text;
             }
 
-            // Strategy 3: Paragraph aggregation
-            if (content.length < 200) {
-                const ps = Array.from(doc.querySelectorAll('p'))
-                    .map(p => (p.innerText || p.textContent || '').trim())
-                    .filter(t => t.length > 40);
-                const joined = ps.join('\n\n');
+            if (content.length < 250) {
+                const seen = new Set();
+                const parts = [];
+                doc.querySelectorAll('p').forEach(p => {
+                    const t = getText(p);
+                    if (t.length >= 45 && !seen.has(t)) {
+                        seen.add(t);
+                        parts.push(t);
+                    }
+                });
+                const joined = parts.join('\n\n');
                 if (joined.length > content.length) content = joined;
             }
 
-            content = content.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+            content = normalize(content);
 
-            // Detect if this is probably a JS-rendered shell
-            const jsShell = content.length < 500 && (
-                html.includes('window.__NEXT_DATA__') ||
-                html.includes('window.__INITIAL_STATE__') ||
-                /<noscript>[^<]*JavaScript/i.test(html) ||
-                html.length < 8000
+            const jsShell = content.length < 250 && (
+                /enable javascript|please enable js|unsupported browser|checking your browser|cloudflare/i.test(doc.body ? doc.body.textContent : '') ||
+                doc.querySelectorAll('script').length > 15
             );
 
+            if (!content) {
+                content = 'No readable article text was found. Try the bookmarklet from the loaded article tab, or save the page as "Webpage, HTML Only" after the article has fully loaded.';
+            }
+
             return {
-                title: title || sourceLabel,
-                content: content || 'No content could be extracted from this page.',
-                canonicalUrl: canonicalUrl,
+                title: title || 'Untitled article',
+                canonicalUrl,
+                content,
                 jsRenderIssue: jsShell
             };
         }
 
         // ===== URL FETCHING (proxies) =====
+        async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                return await fetch(url, { ...options, signal: controller.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
         async function fetchViaProxy(url) {
             const errors = [];
+
+            try {
+                const resp = await fetchWithTimeout(url, { credentials: 'omit', mode: 'cors' }, 12000);
+                if (resp.ok) {
+                    const text = await resp.text();
+                    if (text) return text;
+                }
+                errors.push(`direct fetch: HTTP ${resp.status}`);
+            } catch (e) {
+                errors.push(`direct fetch: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
+            }
+
             for (const proxy of CORS_PROXIES) {
                 try {
                     const proxyUrl = proxy.url + encodeURIComponent(url);
-                    const resp = await fetch(proxyUrl);
+                    const resp = await fetchWithTimeout(proxyUrl, {}, 15000);
                     if (!resp.ok) {
                         errors.push(`${proxy.name}: HTTP ${resp.status}`);
                         continue;
@@ -1143,10 +1165,10 @@
                         errors.push(`${proxy.name}: empty body`);
                     }
                 } catch (e) {
-                    errors.push(`${proxy.name}: ${e.message}`);
+                    errors.push(`${proxy.name}: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
                 }
             }
-            throw new Error('All proxies failed — ' + errors.join('; '));
+            throw new Error('Could not fetch this URL from the browser. Public URL mode depends on CORS/proxies and will not access paywalled or bot-protected pages. Details: ' + errors.join('; '));
         }
 
         async function processQueueItem(item) {
