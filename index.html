@@ -433,20 +433,10 @@
                     The bookmarklet runs inside your browser tab where you're already authenticated, so it sees the full article — no credentials shared with this tool.
                 </p>
 
-                <!-- NEW SAFARI INSTRUCTION -->
-                <div class="info-banner" style="margin-bottom: 20px; background: #fef5e1; border-left-color: #f39c12;">
-                    <strong>Heads up, Safari users!</strong> Due to security restrictions, you cannot paste JavaScript directly into Safari's URL bar and press Enter. Please use one of these methods:
-                    <ol style="margin-top: 8px; margin-left: 20px;">
-                        <li><strong>Drag the button below</strong> to your bookmarks bar.</li>
-                        <li><strong>Manually create a new bookmark</strong> and paste the code into its URL field (see "Or copy the bookmarklet code manually" below).</li>
-                    </ol>
-                </div>
-                <!-- END NEW SAFARI INSTRUCTION -->
-
                 <div class="step">
                     <div class="step-num">1</div>
                     <div class="step-body">
-                        <strong>Show your bookmarks bar</strong> (Chrome/Edge: <code>Ctrl+Shift+B</code>) then <strong>drag this button</strong> onto it:
+                        <strong>Show your bookmarks/favorites bar</strong> (e.g., <code>Ctrl+Shift+B</code> or <code>Cmd+Shift+B</code>) then <strong>drag this button</strong> onto it:
                     </div>
                 </div>
 
@@ -454,6 +444,40 @@
                     <a class="bookmarklet-link" id="bookmarkletLink" href="#" onclick="event.preventDefault(); showToast('Drag this button to your bookmarks bar — don\'t click it here', 'error');">📎 Save Article to Extractor</a>
                     <div class="bookmarklet-hint">Drag this button to your bookmarks bar. Clicking it here won't work — it only works on article pages.</div>
                 </div>
+
+                <!-- Browser-specific instructions -->
+                <div style="margin-top: 25px;">
+                    <h3>Browser-Specific Installation Tips:</h3>
+                    <div class="info-banner" style="margin-bottom: 15px; background: #eef5ff; border-left-color: #3498db;">
+                        <strong>For Chrome & Chromium-based Browsers (Brave, Vivaldi, etc.):</strong>
+                        <ol style="margin-top: 8px; margin-left: 20px;">
+                            <li>Ensure your bookmarks bar is visible (<code>Ctrl+Shift+B</code> or <code>Cmd+Shift+B</code>).</li>
+                            <li><strong>Drag the "Save Article to Extractor" button above</strong> directly onto your bookmarks bar.</li>
+                            <li>Alternatively, right-click your bookmarks bar, choose "Add page...", and paste the code from the "Or copy the bookmarklet code manually" section below into the URL field.</li>
+                        </ol>
+                    </div>
+
+                    <div class="info-banner" style="margin-bottom: 15px; background: #e3f2fd; border-left-color: #2980b9;">
+                        <strong>For Microsoft Edge:</strong>
+                        <ol style="margin-top: 8px; margin-left: 20px;">
+                            <li>Ensure your favorites bar is visible (<code>Ctrl+Shift+B</code>).</li>
+                            <li><strong>Drag the "Save Article to Extractor" button above</strong> directly onto your favorites bar.</li>
+                            <li>If dragging doesn't work, right-click your favorites bar, choose "Add favorite...", and paste the code from the "Or copy the bookmarklet code manually" section below into the URL field.</li>
+                            <li>Edge sometimes has stricter security settings or extensions that can interfere. If the bookmarklet doesn't execute, try disabling extensions or restarting your browser.</li>
+                        </ol>
+                    </div>
+
+                    <div class="info-banner" style="margin-bottom: 20px; background: #fef5e1; border-left-color: #f39c12;">
+                        <strong>For Safari:</strong>
+                        <ol style="margin-top: 8px; margin-left: 20px;">
+                            <li>Ensure your Favorites Bar is visible (View > Show Favorites Bar).</li>
+                            <li><strong>Drag the "Save Article to Extractor" button above</strong> directly onto your Favorites Bar.</li>
+                            <li>Alternatively, manually create a new bookmark (Bookmarks > Add Bookmark...), name it, then edit the bookmark (Bookmarks > Edit Bookmarks) and paste the code from the "Or copy the bookmarklet code manually" section below into its URL field.</li>
+                            <li>Due to Safari's security model, you cannot paste JavaScript directly into the URL bar and press Enter to execute it.</li>
+                        </ol>
+                    </div>
+                </div>
+                <!-- END Browser-specific instructions -->
 
                 <details>
                     <summary>Or copy the bookmarklet code manually</summary>
@@ -653,7 +677,7 @@
             var cleanedUrl = cleanUrlBookmarklet(location.href); // Apply cleaning here
             var payload={__extractorPayload:true,version:1,url:cleanedUrl,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
             var json=JSON.stringify(payload);
-            function done(msg){alert('\u2713 '+msg+'\n\nTitle: '+title+'\nLength: '+content.length+' characters\n\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
+            function done(msg){alert('\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
             if(navigator.clipboard && navigator.clipboard.writeText){
                 navigator.clipboard.writeText(json).then(function(){done('Article copied to clipboard');},function(){
                     var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
@@ -796,7 +820,7 @@
                 const extracted = extractFromHtml(raw, 'pasted-html');
                 addToQueue({
                     type: 'pasted',
-                    url: 'pasted-html',
+                    url: extracted.canonicalUrl || 'pasted-html',
                     title: extracted.title || 'Pasted HTML',
                     content: extracted.content,
                     sourceName: 'Pasted HTML (' + extracted.content.length + ' chars)'
