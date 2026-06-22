@@ -4,7 +4,7 @@ This roadmap outlines the strategic feature pipeline for transforming the Articl
 
 ## Phase 1: Core UX and Privacy (Near-Term)
 - [x] **Clean Room Extraction Mode:** Aggressively strip out all non-essential metadata, tracking tokens in URLs, and hidden `<iframe>` elements during DOM parsing to ensure an "air-gapped" and private document.
-- [x] **Robust Content Acquisition Guidance:** Clearly inform users about limitations of URL fetching for bot-protected public sites and guide them to use the browser-context bookmarklet for higher success rates. (Updated with browser-specific bookmarklet instructions for Edge, Chrome, and Safari)
+- [x] **Robust Content Acquisition Guidance:** Clearly inform users about limitations of URL fetching for bot-protected public sites and guide them to use the browser-context bookmarklet for higher success rates. (Updated with browser-specific bookmarklet instructions for Edge, Chrome, and Safari, and enhanced bookmarklet reliability for cross-browser clipboard operations.)
 - [ ] **Code Block & Syntax Highlighting Preservation:** Retain formatting, monospace fonts, and background shading for `<pre>` and `<code>` tags, ensuring technical articles and documentation are rendered cleanly.
 - [ ] **Adaptive Typographic Output ("Reading Lenses"):** Introduce distinct rendering styles before PDF generation:
   - *Bionic Reading Mode:* Bold initial letters to guide the eyes.

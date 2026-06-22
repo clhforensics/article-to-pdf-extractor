@@ -642,7 +642,7 @@
                     var t=txt(p);
                     if(t.length>40) parts.push(t);
                 });
-                return parts.join('\n\n');
+                return parts.join('\\n\\n');
             }
 
             // Clean URL function for bookmarklet
@@ -677,13 +677,45 @@
             var cleanedUrl = cleanUrlBookmarklet(location.href); // Apply cleaning here
             var payload={__extractorPayload:true,version:1,url:cleanedUrl,title:title,content:content,extractedAt:new Date().toISOString(),length:content.length};
             var json=JSON.stringify(payload);
-            function done(msg){alert('\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
-            if(navigator.clipboard && navigator.clipboard.writeText){
-                navigator.clipboard.writeText(json).then(function(){done('Article copied to clipboard');},function(){
-                    var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
+
+            function done(msg){alert('\\u2713 '+msg+'\\n\\nTitle: '+title+'\\nLength: '+content.length+' characters\\n\\nSwitch to the Article to PDF Extractor and paste (Ctrl+V).');}
+
+            function fallbackCopy() {
+                var ta = document.createElement('textarea');
+                ta.value = json;
+                // Make the textarea invisible and off-screen
+                ta.style.position = 'absolute';
+                ta.style.left = '-9999px';
+                ta.style.top = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                var success = false;
+                try {
+                    success = document.execCommand('copy');
+                } catch (e) {
+                    // console.error('execCommand copy failed:', e); // For debugging, not in production bookmarklet
+                }
+                document.body.removeChild(ta);
+
+                if (success) {
+                    done('Article copied (fallback method)');
+                } else {
+                    // If execCommand failed, prompt for manual copy
+                    prompt('Copy this manually (Ctrl+C or Cmd+C):', json);
+                    done('Please copy manually from the prompt.'); // Inform user even if manual copy is needed
+                }
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(json).then(function() {
+                    done('Article copied to clipboard');
+                }).catch(function() {
+                    // navigator.clipboard.writeText failed, try fallback
+                    fallbackCopy();
                 });
             } else {
-                var ta=document.createElement('textarea');ta.value=json;ta.style.position='fixed';ta.style.top='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done('Article copied (fallback method)');}catch(e){prompt('Copy this manually:',json);}document.body.removeChild(ta);
+                // navigator.clipboard not available, use fallback
+                fallbackCopy();
             }
         })();`;
 
