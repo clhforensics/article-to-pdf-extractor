@@ -95,10 +95,29 @@ def main():
             
         new_html = html_match.group(1).strip()
         new_roadmap = md_match.group(1).strip()
-        
+
     except Exception as e:
         print("❌ Failed to extract code from AI response.")
         print(f"Extraction Error: {e}")
+        exit(1)
+
+    # --- HTML Validation before commit ---
+    validation_errors = []
+    if not new_html:
+        validation_errors.append("HTML content is empty.")
+    if len(new_html) < 500:
+        validation_errors.append(f"HTML content too short: {len(new_html)} chars (minimum 500).")
+    lower_html = new_html.lower()
+    if not (lower_html.lstrip().startswith("<!doctype html>") or lower_html.lstrip().startswith("<html")):
+        validation_errors.append("HTML does not start with <!doctype html> or <html>.")
+    if "</html>" not in lower_html:
+        validation_errors.append("HTML is missing closing </html> tag.")
+    if "<script" not in lower_html:
+        validation_errors.append("HTML is missing <script> tag.")
+    if validation_errors:
+        print("❌ HTML validation failed. Files will NOT be written.")
+        for err in validation_errors:
+            print(f"   - {err}")
         exit(1)
 
     try:
